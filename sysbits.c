@@ -32,7 +32,7 @@
 
 #else
 #  include <sys/types.h>
-#  include <sys/times.h>
+#  include "sys/times.h"
 /* #  include <sys/param.h> */
 #   define HZ 	60
 
@@ -80,8 +80,19 @@
 
 #endif
 
+static int
+COpen(char *s, char *m, int st);
+void Told();
+void PClose(PTR file);
+static CClose(int i);
+static IOError();
+static IODie(char *s);
+
 char PlPrompt[PromptSize];
-static int NewLine, crit;
+//static int NewLine, crit;
+static int NewLine;
+int crit;
+
 static int (*OldSignal[NSigs])();
 
 typedef struct { jmp_buf buf; } JumpBuf;
@@ -146,7 +157,7 @@ PTR file;
     }
     else if ((FileStatus[i]&DIR) != READ) {/* open but not right */
 	if (i == Output)
-	    Told();
+		Told();
 	else
 	    CClose(i);	    
 	i = CSee(AtomToFile(file));
@@ -218,19 +229,19 @@ Seen()
     Input = STDIN;
 }
 
-Told()
+void Told()
 {
-    if (Output == STDOUT || Output == STDERR) return;
+	if (Output == STDOUT || Output == STDERR) return;
     CClose(Output);
     Output = STDOUT;
 }
 
-PClose(file)
+void PClose(file)
 PTR file;
 {
     int i;
 
-    if (file == user) return;
+	if (file == user) return;
     for (i = 0; i < MaxFile; i++)
 	if (FileAtom[i] == file) {
 	    CClose(i);
@@ -316,6 +327,7 @@ int c;
     c = getc(File[Input]);
     if (c == EOF) c = PlEOF;
     else if (Input == STDIN) NewLine = (c == '\n');
+	//fprintf(stderr,"%c",c);
     return c;
 }
 
@@ -396,16 +408,18 @@ CreateStacks()
 
     for (i = 0; i < NAreas; i++)
 	s += Size[i];
-    if ((r = malloc(s)) == NULL) {
+	//fprintf(stderr,"Memsize %i\n",s/K);
+	if ((r = malloc(s)) == NULL) {
 	perror("Prolog");
 	exit(BAD_EXIT);
     }
-    for (i = 0; i < NAreas; i++) {
+	for (i = 0; i < NAreas; i++) {
 	Origin[i] = (PTR)r;
+	//printf("Origin[%u]=0x%08x\n",i,Origin[i]);
 	r += Size[i];
-    }
+	}
     Origin[NAreas] = r;
-    atmax = auxstk0-100;
+	atmax = auxstk0-100;
     auxmax = trbase-1;
     trmax = skel0-1;
     hpmax = glb0-100;
@@ -446,8 +460,8 @@ int s;
 	case SIGINT:
 	    Interrupt();
 	    break;
-	case SIGQUIT:
-	    Stop(FALSE);
+//	case SIGQUIT:
+//	    Stop(FALSE);
 	case SIGFPE:
 	    signal(SIGFPE,TakeSignal);
 	    ArithError("Floating point exception");
@@ -571,10 +585,10 @@ Sh()
     char *shell; int p;
     if (!(shell=getenv("SHELL")))
 	shell = "/bin/sh";
-    if ((p=fork())==0) {
-    	if (execl(shell,shell,0)<0)
-	    return FALSE;
-    } else if (p<0) return FALSE;
+//    if ((p=fork())==0) {
+//    	if (execl(shell,shell,0)<0)
+//	    return FALSE;
+//    } else if (p<0) return FALSE;
     wait(0);
     return TRUE;
 #else
@@ -609,7 +623,7 @@ PTR cmd;
 suspend()
 {
     signal(SIGINT,SIG_DFL);
-    kill(0,SIGINT);
+//    kill(0,SIGINT);
     signal(SIGINT,TakeSignal);
 }
 

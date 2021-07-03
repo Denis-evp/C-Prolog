@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>1899.12.30 00:00:00.000.688,=E:\C-Prolog\evalp.h</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.434,=E:\C-Prolog\trace.h</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.659,=E:\C-Prolog\times.c</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.780,=E:\C-Prolog\space.c</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.583,=E:\C-Prolog\sys\times.h</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.359,C:\Users\User\Documents\Embarcadero\Studio\Projects\Project1.cbproj=E:\C-Prolog\Project1.cbproj</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.935,=E:\C-Prolog\compare.c</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.134,=E:\C-Prolog\auxfn.c</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.390,=E:\C-Prolog\arithop.h</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.550,=E:\C-Prolog\arith.c</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.396,=E:\C-Prolog\rewrite.c</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.353,=C:\Users\User\Documents\Embarcadero\Studio\Projects\Project1PCH1.h</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.640,C:\Users\User\Documents\Embarcadero\Studio\Projects\Project1PCH1.h=E:\C-Prolog\Project1PCH1.h</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.894,E:\C-Prolog\C-PrologPCH1.h=E:\C-Prolog\Project1PCH1.h</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.416,=E:\C-Prolog\main.c</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.941,E:\C-Prolog\C-Prolog.cbproj=E:\C-Prolog\Project1.cbproj</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.444,=E:\C-Prolog\dbase.c</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.429,=E:\C-Prolog\pl.h</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.798,=E:\C-Prolog\parms.c</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.190,=E:\C-Prolog\trace.c</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.306,=E:\C-Prolog\sysbits.c</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.612,=E:\C-Prolog\unify.c</Transaction>
+  </Transactions>
+</BorlandProject>

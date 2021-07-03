@@ -14,6 +14,13 @@
 *                                                                     *
 **********************************************************************/
 
+#ifdef _WIN32
+#include <sys/timeb.h>
+#include <sys/types.h>
+#include <winsock2.h>
+#include <stdio.h>
+#endif
+
 #include <stdio.h>
 
 #define TRUE	1
@@ -22,32 +29,48 @@
 #define K	1024
 
 /* the representable integers are in the interval [MinInt,MaxInt] */
+/* Представимые целые числа в интрвале [MinInt,MaxInt] */
 
-#define MaxInt	268435455	/* largest integer = 2^28-1 */
-#define MinInt	-268435456	/* smallest integer = -2^28 */
+							/* largest integer = 2^28-1 */
+#define MaxInt	268435455	/* наибольшее целое = 2^28-1 */
 
+							/* smallest integer = -2^28 */
+#define MinInt	-268435456	/* наименьшее целое = -2^28 */
 
 /* SIGNED must be defined as the type of integers with the same width
-   as a pointer (int on a VAX). This type is used to interpret pointers
-   as signed numbers in comparisons related to the internal representation
-   of terms (see picture below). Despite attempts to parameterise as
-   much as possible, the sistem still depends on pointers being 32 bits
-   wide and numbers being held in two's-complement.
+	as a pointer (int on a VAX). This type is used to interpret pointers
+	as signed numbers in comparisons related to the internal representation
+	of terms (see picture below). Despite attempts to parameterise as
+	much as possible, the sistem still depends on pointers being 32 bits
+	wide and numbers being held in two's-complement.
+*/
+/* SIGNED должно быть определено как тип "целое" той же ширины что и "указатель"
+	(int в системе VAX). Этот тип используется для интерпретации указателей
+	как чисел со знаком в сравнении, связаным с внутренним представлением
+	терминов (см. рисунок ниже). Несмотря на попытки параметризации в
+	максимально возможной степени, система по-прежнему зависит от того, что
+	указатели имеют ширину 32 бита, а числа хранятся в формате двоичного дополнения.
 */
 
 typedef int SIGNED;
 
 /* The original EMAS Prolog in IMP relies too much on pointers being
-   just addresses, independently of the type pointed to, for me to be
-   able to do anything about it. To help satisfy the compiler's view
-   of typing, addresses are objects of type PTR, which are then cast
-   into the appopriate types.
+	just addresses, independently of the type pointed to, for me to be
+	able to do anything about it. To help satisfy the compiler's view
+	of typing, addresses are objects of type PTR, which are then cast
+	into the appopriate types.
+*/
+/* В оригинале EMAS Prolog в IMP опирается в основном на не типизированные
+	указатели - просто адреса, независимо от типа на который они указывают,
+	мне необходимо сделать с этим что то. Чтобы помочь определить компилятору
+	типизацию, адреса - это объекты типа PTR, которые затем приводятся к
+	соответствующему типу.
 */
 
 typedef unsigned **PTR;
 
 #define CellP(p)	((PTR*)(p))
-#define AtomP(p)	((ATOM*)(p))
+#define AtomP(p)	((PrATOM*)(p))
 #define FunctorP(p)	((FUNCTOR*)(p))
 #define FrameP(p)	((FRAME*)(p))
 #define ClauseP(p)	((CLAUSEREC*)(p))
@@ -58,21 +81,29 @@ typedef unsigned **PTR;
 #define CharP(p)	((char*)(p))
 
 #define Addr(p)		((PTR)&(p))	/* PTRise an address */
+								/* приведение к типу PTR и получение адреса */
 
 /* Prolog registers as cell pointers */
 
 /* Words(number) converts a number of bytes to a number of PTRs */
+/* Words(number) преобразует количество байт в число PTR */
 
 #define Words(v) (((v)+sizeof(PTR))/sizeof(PTR))
 
-#define SC(x,o,y) (Signed(x) o Signed(y)) /* signed pointer comparison */
+#define SC(x,o,y) (Signed(x) o Signed(y))	/* signed pointer comparison */
+											/* сравнение указателей со знаком */
 
 /* Origin of input variables */
+/* Определение входных переменных */
 
 #define VAR0	0x40000000	/* all variables */
+							/* все переменные */
 #define LOCAL0	0x41000000	/* local variables */
+							/* локальные переменные */
 #define VMASK	0xf0000000	/* variable bit mask */
+							/* битовая маска переменной */
 #define LVMASK	0xff000000	/* local variable bit mask */
+							/* битовая маска локальной переменной */
 
 #ifdef COMMENT
 
@@ -93,27 +124,27 @@ typedef unsigned **PTR;
     
     The layout is as follows:
 
-	atom0:  	*----------------------*
+	atom0:  *----------------------*
 			|  Atoms               |
-	auxstk0:	*----------------------*
+	auxstk0:*----------------------*
 			|  Auxiliary stack     |
-	trbase:		*----------------------*
+	trbase:	*----------------------*
 			|  Trail               |
-	skel0:		*----------------------*
+	skel0:	*----------------------*
 			|  Heap (input terms)  |
-	glb0:		*----------------------*
+	glb0:	*----------------------*
 			|  Global stack        |
-	lcl0:		*----------------------*
+	lcl0:	*----------------------*
 			|  Local stack         |
 			*----------------------*
 
 #endif
 
-#define NAreas	6	/* number of work areas/stacks */
+#define NAreas	6	/* число рабочих областей/стеков */
 
 #define IsRef(c)	SC(c,>=,glb0)	/* reference */
-#define IsAtomic(c)	SC(c,<,skel0)	/* atomic term */
-#define IsInp(c)	SC(c,<,glb0)	/* input term */
+#define IsAtomic(c)	(SC(c,<,skel0) && SC(c,>=,atom0))	/* atomic term */
+#define IsInp(c)	(SC(c,<,glb0) && SC(c,>=,atom0))	/* input term */
 #define IsComp(c)	SC(c,>=,skel0)	/* compound or constructed term */
 #define IsLocal(c)	SC(c,>=,lcl0)	/* local address */
 #define IsPrim(c)	SC(c,<,0)	/* number or db reference */
@@ -195,7 +226,7 @@ extern PTR ConsFloat();
 
 typedef struct {
     PTR First;
-    PTR Last;
+	PTR Last;
 } Header;
 
 /* atom entry */
@@ -207,7 +238,7 @@ typedef struct {
 #define defsofae AClauses.First
 #define dbofae ARecords.First
 
-typedef struct ATOM {
+typedef struct PrATOM {
     PTR atofae;			/* self pointer */
     union {
 	unsigned Infofae;	/* information */
@@ -217,17 +248,17 @@ typedef struct ATOM {
 	    short InfixOfAE;	/* infix priority */
 	} ABytes;
     } AInfo;
-    Header AClauses;		/* chain of definitions */
-    Header ARecords;		/* chain of records */
+	Header AClauses;		/* chain of definitions */
+	Header ARecords;		/* chain of records */
     PTR fcofae;			/* functor chain */
     PTR nxtofae;		/* hash chain */
     short prfxofae, psfxofae;	/* prefix and postfix priorities */
-    char stofae[1];		/* string for atom */
-} ATOM;
+	char stofae[1];		/* string for atom */
+} PrATOM;
 
 /* size of atom entry (excluding string) */
 
-#define szofae sizeof(ATOM)
+#define szofae sizeof(PrATOM)
 
 /* Size of hashtable */
 
@@ -251,7 +282,7 @@ typedef struct FUNCTOR {
 	} FBytes;
     } FInfo;
     Header FClauses;		/* clauses for this functor */
-    Header FRecords;		/* data base entries under functor */
+	Header FRecords;		/* data base entries under functor */
     PTR nxtoffe;		/* chain of functors with same name */
     PTR gtoffe;			/* start of general skeleton for this */
 				/* term. points to this entry. */
@@ -270,7 +301,7 @@ typedef struct CLAUSEREC {
     unsigned char lvofcl;		/* no. of local vars */
     unsigned char gvofcl;		/* no. of global vars */
     char infofcl;		/* general inf. */
-    int	 refcofcl;		/* reference count */
+	int	 refcofcl;		/* reference count */
     PTR  hdofcl;		/* clause head */
     PTR  bdyofcl;		/* body of clause */
     PTR  altofcl;		/* alternatives */
@@ -346,6 +377,7 @@ typedef struct FRAME {
 #define altofcf	FCTL.Altofcf
 
 /* Prolog registers as frame pointers */
+/* Регистры Пролога как указатели на фреймы */
 
 #define	X		FrameP(x)
 #define V		FrameP(v)
@@ -543,6 +575,7 @@ typedef VarEntry *VarP;
 #define	SaveMagic	"PLGS"
 
 /* Exit codes */
+/* Коды выхода */
 
 #ifdef unix
 # define GOOD_EXIT 0
@@ -564,9 +597,13 @@ extern char Switch[], StandardStartup[], Parameter[],
 
 extern VarP varchain;
 
-extern int crit, running, debug, sklev, quoteia, nvars, lc, errno,
-           saveversion, Switches,  Size[], State[], NParms,
+
+static int nvars;
+
+extern int crit, running, debug, sklev, quoteia, lc, errno,
+		   saveversion, Switches,  Size[], State[], NParms,
 	   Input, Output, AllFloat;
+
 
 /* public functions */
 

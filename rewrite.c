@@ -73,8 +73,14 @@ static char chtyp[] = {
 /*  p   q   r   s   t   u   v   w   x   y   z   {   |   }   ~  del */
    LC, LC, LC, LC, LC, LC, LC, LC, LC, LC, LC, BK, BK, BK, SY,  BS };
 
-PTR term();
+//PTR term();
 
+
+static
+digits(char **s);
+
+static PTR
+term(int n);
 
 int
 isop(atom,optype,p,lp,rp)
@@ -171,7 +177,7 @@ char *s;
     return TRUE;
 }
 
-static
+static void
 patom(at)
 PTR at;
 {
@@ -191,7 +197,7 @@ PTR at;
 
 /*  pwrite - write a prolog term  */
 
-pwrite(t,g,p)
+void pwrite(t,g,p)
 PTR t, g; int p;
 /*  write term t in context of priority p
     with global frame g
@@ -199,90 +205,98 @@ PTR t, g; int p;
 {
     int i, m, mr, ml; PTR ax, f, a;
     if (IsPrim(t)) {
-	if (IsInt(t)) {
-	    sprintf(OutBuf,"%d",XtrInt(t)); PutString(OutBuf);
-	    return;
+		if (IsInt(t)) {
+			sprintf(OutBuf,"%d",XtrInt(t)); PutString(OutBuf);
+			return;
+		}
+
+		if (IsFloat(t)) {
+			sprintf(OutBuf,"%g",XtrFloat(t)); PutString(OutBuf);
+			return;
+		}
+		sprintf(OutBuf,"%x",t);
+		PutString(OutBuf);
+		return;
 	}
-	if (IsFloat(t)) {
-	    sprintf(OutBuf,"%g",XtrFloat(t)); PutString(OutBuf);
-	    return;
+
+	if (IsAtomic(t)) {
+		patom(t);
+		return;
 	}
-	sprintf(OutBuf,"%x",t);
-	PutString(OutBuf);
-	return;
-    }
-    if (IsAtomic(t)) {
-	patom(t);
-	return;
-    }
-    if (Undef(*t)) {
-	sprintf(OutBuf,"_%d",t-glb0); PutString(OutBuf);
-	return;
+
+	if (Undef(*t)) {
+		sprintf(OutBuf,"_%d",t-glb0); PutString(OutBuf);
+		return;
     }
     if (IsRef(t))
-	g = MolP(t)->Env, t = MolP(t)->Sk;
+		g = MolP(t)->Env, t = MolP(t)->Sk;
     if (SkelP(t)->Fn == listfunc) {
-	Put('[');
-	do {
-	    ax = argv(Addr(SkelP(t)->Arg1),g,&a);
-	    pwrite(ax,a,999);
-	    t = argv(Addr(SkelP(t)->Arg2),g,&g);
-	} while (IsComp(t) && (MolP(t)->Sk == listfunc) && (Put(','),TRUE));
-	if (t != atomnil) {
-	    Put('|');
-	    pwrite(t,g,999);
+		Put('[');
+		do {
+			ax = argv(Addr(SkelP(t)->Arg1),g,&a);
+			pwrite(ax,a,999);
+			t = argv(Addr(SkelP(t)->Arg2),g,&g);
+		} while (IsComp(t) && (MolP(t)->Sk == listfunc) && (Put(','),TRUE));
+
+		if (t != atomnil) {
+			Put('|');
+			pwrite(t,g,999);
+		}
+		Put(']');
+		return;
 	}
-	Put(']');
-	return;
-    }
+
     if (MolP(t)->Sk == assertfunc) {
-	Put('{');
-	ax = argv(Addr(SkelP(t)->Arg1),g,&g); pwrite(ax,g,1200);
-	Put('}');
-	return;
-    }
-    f = SkelP(t)->Fn;
-    i = FunctorP(f)->arityoffe;
-    a = FunctorP(f)->atoffe;
-    if (i == 1) {
-	if (isop(a,PREFIX,&m,&ml,&mr)) {
-	    if (m > p) Put('(');
-	    patom(a);
-	    if (Isatoz(a)) Put(' ');
-	    ax = argv(Addr(SkelP(t)->Arg1),g,&f);
-	    pwrite(ax,f,mr);
-	    if (m > p) Put(')');
-	    return;
+		Put('{');
+		ax = argv(Addr(SkelP(t)->Arg1),g,&g); pwrite(ax,g,1200);
+		Put('}');
+		return;
 	}
-	if (isop(a,POSTFIX,&m,&ml,&mr)) {
-	    if (m > p) Put('(');
-	    ax = argv(Addr(SkelP(t)->Arg1),g,&f);
-	    pwrite(ax,f,ml);
-	    if (Isatoz(a)) Put(' ');
-	    patom(a);
-	    if (m > p) Put(')');
-	    return;
-	}  
-    }
-    if (i == 2 && isop(a,INFIX,&m,&ml,&mr)) {
-	if (m > p) Put('(');
-	ax = argv(Addr(SkelP(t)->Arg1),g,&f);
-	pwrite(ax,f,ml);
-	if (Isatoz(a)) Put(' ');
+	f = SkelP(t)->Fn;
+	i = FunctorP(f)->arityoffe;
+	a = FunctorP(f)->atoffe;
+	if (i == 1) {
+		if (isop(a,PREFIX,&m,&ml,&mr)) {
+			if (m > p) Put('(');
+			patom(a);
+			if (Isatoz(a)) Put(' ');
+			ax = argv(Addr(SkelP(t)->Arg1),g,&f);
+			pwrite(ax,f,mr);
+			if (m > p) Put(')');
+			return;
+		}
+
+		if (isop(a,POSTFIX,&m,&ml,&mr)) {
+			if (m > p) Put('(');
+			ax = argv(Addr(SkelP(t)->Arg1),g,&f);
+			pwrite(ax,f,ml);
+			if (Isatoz(a)) Put(' ');
+			patom(a);
+			if (m > p) Put(')');
+			return;
+		}
+	}
+
+	if (i == 2 && isop(a,INFIX,&m,&ml,&mr)) {
+		if (m > p) Put('(');
+		ax = argv(Addr(SkelP(t)->Arg1),g,&f);
+		pwrite(ax,f,ml);
+		if (Isatoz(a)) Put(' ');
+		patom(a);
+		if (Isatoz(a)) Put(' ');
+		ax = argv(Addr(SkelP(t)->Arg2),g,&f); pwrite(ax,f,mr);
+		if (m > p) Put(')');
+		return;
+	}
 	patom(a);
-	if (Isatoz(a)) Put(' ');
-	ax = argv(Addr(SkelP(t)->Arg2),g,&f); pwrite(ax,f,mr);
-	if (m > p) Put(')');
+	Put('(');
+
+	while (i-- > 0) {
+		ax = argv(++t,g,&f); pwrite(ax,f,999);
+		if (i > 0) Put(',');
+	}
+	Put(')');
 	return;
-    }
-    patom(a);
-    Put('(');
-    while (i-- > 0) {
-	ax = argv(++t,g,&f); pwrite(ax,f,999);
-	if (i > 0) Put(',');
-    }
-    Put(')');
-    return;
 }
 
 
@@ -299,7 +313,7 @@ static int e;
 
 #define NAME		1
 #define PRIMITIVE	2
-#define VAR		3
+#define VAR			3
 #define STRING		4
 #define PUNCTUATION	5
 #define FULLSTOP	6
@@ -326,7 +340,7 @@ nextch()
 	return chtype;
     }
     chtype = chtyp[ch = *++lp];
-    if (lp >= lpmax) lp = lpmax-2;
+	if (lp >= lpmax) lp = lpmax-2;
     return chtype;
 }
 
@@ -344,8 +358,12 @@ char *id;
 	return p;
     }
     for (q = varchain, r = NULL; q; r = q, q = q->NextVar)
-	if (!strcmp(q->VarName,id)) return q->VarValue;
-    l = Words(sizeof(VarEntry)+strlen(id))+1;
+	if (!strcmp(q->VarName,id)) {
+		//fprintf(stderr,"TERM:is old VAR:%s\n",id);
+		return q->VarValue;
+	}
+	//fprintf(stderr,"TERM:is new VAR:%s\n",id);
+	l = Words(sizeof(VarEntry)+strlen(id))+1;
     q = (VarP)varfp;
     varfp += l;
     HighTide(varfp,Auxtide);
@@ -368,7 +386,7 @@ char *id;
 
 /*  report a syntax error and wind things up (in read) */
 
-static
+static void
 SyntaxError()
 {
     char *i;
@@ -389,22 +407,23 @@ SyntaxError()
 
 
 /*  token - tokeniser (in read) */
+/*  token - токенайзер (при чтении) */
 
 static int
 token()
 {
-    int v, l;
+	int v, l;
 
     if (retoken) {
 	retoken = FALSE;
 	return tokentype;
     }
     start:
-    switch (nextch()) {
+	switch (nextch()) {
 	case BS: goto start;
 
 	case UC:		/* uppercase letter */
-	    v = lc; goto id;
+		v = lc; goto id;
 
 	case UL:		/* underline */
 	    v = 1; goto id;
@@ -414,29 +433,34 @@ token()
 	    rechar = TRUE; l = 0;
 	    while (nextch() <= N) {
 		if ((!lc) && (!v) && ch>='A' && ch<='Z') ch += 32;
-		nam[l++]=ch;
-	    }
-	    nam[l] = 0;
+		//при некоторых условиях заменить заглывные буквы на маленькие
+		nam[l++]=ch; // записать символ в строку имя
+		}
+	    nam[l] = 0; //строка завершается нулём
 	    rechar = TRUE;
 	    if (v) {
 		tokentype = VAR;
+		//fprintf(stderr,"Tokeniser:VAR:%s\n",nam);
 		tokeninfo.AsPTR = lookupvar(nam);
 		return VAR;
-	    }
-	    tokentype = NAME;
-	    tokeninfo.AsPTR = lookup(nam);
+		}
+		tokentype = NAME;
+		//fprintf(stderr,"Tokeniser:NAME:%s\n",nam);
+		tokeninfo.AsPTR = lookup(nam);
 	    return NAME;
 	case N: 	/* digit */
-	    if (*(lp+1) == '\'') {
+		if (*(lp+1) == '\'') {
 		lp++; v = ch-'0'; l = 0;
 		while (nextch() == N)
-		    l = l*v+ch-'0';
-		tokeninfo.AsPTR = ConsInt(l);
-		rechar = TRUE;
-		return tokentype = PRIMITIVE;
-	    }
-	if (!NumberString(&lp,&tokeninfo.AsPTR,TRUE))
-	    SyntaxError();
+			l = l*v+ch-'0';
+			tokeninfo.AsPTR = ConsInt(l);
+			rechar = TRUE;
+			//fprintf(stderr,"Tokeniser:PRIMITIVE1:%i\n",tokeninfo.AsPTR);
+			return tokentype = PRIMITIVE;
+		}
+		if (!NumberString(&lp,&tokeninfo.AsPTR,TRUE))
+			SyntaxError();
+		//fprintf(stderr,"Tokeniser:PRIMITIVE2:%i\n",tokeninfo.AsPTR);
 	    return tokentype = PRIMITIVE;
 	case QT:		/* single quote */
 	    v = QT; goto quoted;
@@ -453,10 +477,12 @@ token()
 	    rechar = TRUE;
 	    if (v == QT) {
 		tokentype = NAME; tokeninfo.AsPTR = lookup(nam);
+		//fprintf(stderr,"Tokeniser:NAME:%s\n",nam);
 		return NAME;
 	    }
-	    tokentype = STRING; tokeninfo.AsString = nam;
-	    return STRING;
+		tokentype = STRING; tokeninfo.AsString = nam;
+		//fprintf(stderr,"Tokeniser:STRING:%s\n",nam);
+		return STRING;
 
 	case SY:		/* symbol char */
 	    if (ch =='/' && *(lp+1) == '*') {
@@ -468,8 +494,9 @@ token()
 	    l = 1; nam[0] = ch;
 	    if (ch == '.') {		/* full stop is a special case */
 		if (nextch() == BS ) {
-		    tokentype = FULLSTOP; lp--;
-		    return FULLSTOP;
+			tokentype = FULLSTOP; lp--;
+			//fprintf(stderr,"Tokeniser:FULLSTOP\n");
+			return FULLSTOP;
 		}
 		rechar = TRUE;
 	    }
@@ -477,12 +504,14 @@ token()
 		nam[l++] = ch;
 	    nam[l] = 0;
 	    rechar = TRUE;
-	    tokentype = NAME; tokeninfo.AsPTR = lookup(nam);
+		tokentype = NAME; tokeninfo.AsPTR = lookup(nam);
+		//fprintf(stderr,"Tokeniser:NAME:%s\n",nam);
 	    return NAME;
 
 	case SL:		/* solo char */
 	    nam[0] = ch; nam[1] = 0;
-	    tokentype = NAME; tokeninfo.AsPTR = lookup(nam);
+		tokentype = NAME; tokeninfo.AsPTR = lookup(nam);
+		//fprintf(stderr,"Tokeniser:NAME:%s\n",nam);
 	    return NAME;
 
 	case BK:		/*  ponctuation char */
@@ -491,10 +520,12 @@ token()
 		if (atomnil)
 		    tokeninfo.AsPTR = atomnil;
 		else tokeninfo.AsPTR = lookup(nam);
+		//fprintf(stderr,"Tokeniser:NAME:%s\n",nam);
 		return NAME;
 	    }
-	    tokentype = PUNCTUATION; tokeninfo.AsChar = ch;
-	    return PUNCTUATION;
+		tokentype = PUNCTUATION; tokeninfo.AsChar = ch;
+		//fprintf(stderr,"Tokeniser:PUNCTUATION:%c\n",ch);
+		return PUNCTUATION;
     }
 }		/* end of tokeniser */
 
@@ -510,7 +541,7 @@ PTR atom;
     chtype = nextch();		/* pass over ( */
     do {
 	*lsp++ = term(999); a++;
-    } while (token() == PUNCTUATION && tokeninfo.AsChar == ',');
+	} while (token() == PUNCTUATION && tokeninfo.AsChar == ',');
     if (tokentype != PUNCTUATION || tokeninfo.AsChar != ')')
 	SyntaxError();
     e = apply(atom,a,savelsp);
@@ -584,7 +615,7 @@ int n;
 	    }
 	    if (isop(tokeninfo.AsPTR,PREFIX,&m,&ml,&mr)) {
 		e[0] = s = tokeninfo.AsPTR;
-		if (token() == PUNCTUATION && 
+		if (token() == PUNCTUATION &&
                    (tokeninfo.AsChar != '(' &&
 		    tokeninfo.AsChar != '{' &&
 		    tokeninfo.AsChar != '[')
@@ -613,8 +644,8 @@ int n;
 	    break;
 	
 	case STRING:			/* a string */
-	e[0] = stringtolist();
-	break;
+		e[0] = stringtolist();
+		break;
 	
 	case PUNCTUATION:		/*  ponctuation char */
 	    if (tokeninfo.AsChar == '(') {
@@ -637,7 +668,7 @@ int n;
 		break;
 	    }
 	
-	case FULLSTOP:		/*  other poctuation chars or fullstop */
+	case FULLSTOP:		/*  other punctuation chars or fullstop */
 	    SyntaxError(); return NULL;
 
     }
@@ -688,38 +719,43 @@ int n;
 
 
 /* the read predicate */
+/* чтение предиката */
 
 PTR
 pread()
 {
-    varchain = NULL; errflg = FALSE; nvars = 0;
-    lpmax = line = CharP(lsp);
+	varchain = NULL; errflg = FALSE; nvars = 0;
+	lpmax = line = CharP(lsp);
     slsp = lsp;
     
-    loop:
+	loop:
     ch = Get();
-    l1:
-    chtype = chtyp[ch];
-    if (chtype == BS) {
-	do ch = Get(); while(chtyp[ch] == BS);
-	*lpmax++ = ' ';
+	l1:
+	chtype = chtyp[ch]; // получение типа символа
+	if (chtype == BS) { // тип символа "Blank space" (пробел и т. п.)
+	do ch = Get(); while(chtyp[ch] == BS); //пропускаем слудующие пробелы
+	*lpmax++ = ' '; //?записываем в выходную строку пробел
 	goto l1;
-    }
-    if (ch == '%') {
+	}
+	if (ch == '%') { // наверное начался комментарий
 	ch = Get();
-	if (ch == '(') {
-	    ch = '{'; goto l1;
+	if (ch == '(') { //? если '('
+		ch = '{'; goto l1; //? заменяем символ на '{' и считаем что комментарий завершился
 	}
-	if (ch == ')') {
-	    ch = '}'; goto l1;
+	if (ch == ')') { //? если ')'
+		ch = '}'; goto l1; //? заменяем символ на '}' и считаем что комментарий завершился
 	}
-	while (ch != '\n') ch = Get();
+	while (ch != '\n') ch = Get(); //пропускаем символы до конца строки
 	goto loop;
     }
-    *lpmax++ = ch;
-    if (chtype == QT && lpmax-line > 1 && chtyp[*(lpmax-2)] == N)
-	chtype = N;
-    if (ch == '*' && lpmax-line > 1 && *(lpmax-2) == '/') {
+	*lpmax++ = ch; //записываем символ в выходную строку
+
+	// если тип символа ' Single quote и это не первый символ в строке
+	// и предшествующий символ - цифра !(пердположительно должна lpmax-line > 2)
+	if (chtype == QT && lpmax-line > 1 && chtyp[*(lpmax-2)] == N)
+	chtype = N; //? то тип символа -- число?
+	/// По всей видимости ещё один вариант комментария
+	if (ch == '*' && lpmax-line > 1 && *(lpmax-2) == '/') {
 	lpmax -= 2;
 	ch = Get();
 	do {
@@ -728,35 +764,44 @@ pread()
 	    while (ch == '*') ch = Get();
 	} while (ch != '/');
 	goto  loop;
-    }
-    if ((CharP(vmax)) < lpmax) {
+	} /// и окончание его описания
+
+	// Проверка длины строки
+	if ((CharP(vmax)) < lpmax) {
 	fprintf(stderr,
-	    "! Term too long to read (%d characters)\n",lpmax-CharP(lsp));
+		"! Term too long to read (%d characters)\n",lpmax-CharP(lsp));
 	Event(ABORT);
-    }
+	}
+	// чтение строки в одинарных или двойных кавычках и копирование
+    // в выходную строку
     if (chtype == QT || chtype == DC) {
 	do {
 	    ch = Get(); *lpmax++ = ch;
 	} while(chtyp[ch] != chtype);
 	goto loop;
-    }
-    if (ch == '.' && lpmax-line >= 2 && chtyp[*(lpmax-2)] != SY) {
+	}
+	// если символ . и это не первый символ в строке и предшествующий символ
+	// не является специальным символом ./# и т. п.
+	if (ch == '.' && lpmax-line >= 2 && chtyp[*(lpmax-2)] != SY) {
+	// то читать следующий символ
 	ch = Get();
-	if (chtyp[ch] == BS) goto end; else goto l1;
-    }
-    goto loop;
-    
+	// если это тип BS (пробел) --  то завершить чтение строки
+	if (chtyp[ch] == BS) goto end; else goto l1; // иначе продолжить анализ с начала
+	}
+	goto loop; // прочитать символ и начать сначала
+
     end:
-    *lpmax = '\n'; *(lpmax+1) = 0;
-    lp = line-1;
-    rechar = retoken = FALSE;
-    lsp += Words(lpmax-line+1);
-    e = term(1200);
-    if (token() != FULLSTOP) SyntaxError();
-    if (errflg) e = NULL;
+	*lpmax = '\n'; *(lpmax+1) = 0; // добавляет в конец строки символ
+	// новой строки и нулевой символ
+	lp = line-1; // назначение неизвестно -- lp на символ перед началом строки
+	rechar = retoken = FALSE; // назначение неизвестно
+	lsp += Words(lpmax-line+1); //сдвинуть указатель на число длину строки в "словах"
+	e = term(1200); // назначение неизвестно
+	if (token() != FULLSTOP) SyntaxError(); // токенизация
+	if (errflg) e = NULL;
 /*  for (lp = line; lp <= lpmax; lp++) putchar(*lp); */
-    lsp = slsp;
-    return e;
+	lsp = slsp;
+	return e;
 }
 
 int
@@ -770,7 +815,7 @@ NumberString(s,p,free)
 
 char **s; PTR *p; int free;
 {
-    double d; int i; char *t, *u, c;
+	double d=0; int i; char *t, *u, c;
     
     u = t = *s;
     if (*t == '-' || *t == '+') t++;
@@ -789,19 +834,24 @@ char **s; PTR *p; int free;
     yes:
     *s = t-1;
     c = *t;
-    *t = ' ';
-    sscanf(u,"%F",&d);
-    *t = c;
-    if (Narrow(d,&i))
-	*p = ConsInt(i);
-    else
-	*p = ConsFloat(d);
-    return TRUE;
-    stop:
-    if (free || !*t) goto yes;
-    no:
-    *s = t-1;
-    return FALSE;
+	*t = 0;
+	//fprintf(stderr,"Tokeniser:__sscanf:%s\n",u);
+	sscanf(u,"%lf",&d);
+	//fprintf(stderr,"Tokeniser:double:%g\n",d);
+	*t = c;
+	if (Narrow(d,&i)) {
+		*p = ConsInt(i);
+		//fprintf(stderr,"Tokeniser:ConsInt:%lf\n",d);
+	} else {
+		*p = ConsFloat(d);
+		//fprintf(stderr,"Tokeniser:ConsFloat:%lf\n",d);
+	}
+	return TRUE;
+	stop:
+	if (free || !*t) goto yes;
+	no:
+	*s = t-1;
+	return FALSE;
 }
 
 static

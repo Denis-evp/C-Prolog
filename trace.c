@@ -1,6 +1,8 @@
 #include "pl.h"
 #include "trace.h"
 
+static failto(PTR frame);
+
 static char *portname[] = {
     "Call: ", "Exit: ", "Back to: ", "Fail: "
 };
@@ -142,7 +144,7 @@ PTR fr;
     g = FrameP(fr)->gofcf;
     if (!IsInp(g)) g = MolP(g)->Sk;
     cp = FunctorP(SkelP(g)->Fn)->defsoffe;
-    fp = fr->altofcf; onp = NULL;
+	fp = FrameP(fr)->altofcf; onp = NULL;
     for (;(np = Addr(ClauseP(cp)->altofcl)) != fp; cp = *np) {
 	if (!*np) return 0;
 	if (onp == np) return 0;
@@ -160,12 +162,12 @@ PTR fr;
     out = Output; Output = STDOUT;
     for (; fr != ofr; fr = x) {
 	ofr = fr;
-	x = fr->gfofcf;
-	info = fr->infofcf;
+	x = FrameP(fr)->gfofcf;
+	info = FrameP(fr)->infofcf;
 	if (info== (PRIM_TAG|NUM_TAG)) continue;
-	frg = fr->gofcf;
+	frg = FrameP(fr)->gofcf;
 	if (IsInp(frg))
-	    fre = x->gsofcf;
+		fre = FrameP(x)->gsofcf;
 	else {
 	    fre = MolP(frg)->Env; frg = MolP(frg)->Sk;
 	}

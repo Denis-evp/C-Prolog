@@ -9,6 +9,8 @@ int ReleaseCheck = TRUE;
 #define	CHAINS		16
 #define	BUCKET_SIZE	1024
 
+void CollectGarbage();
+
 typedef struct BLOCK
 {
     struct BLOCK *NextBlock;
@@ -352,7 +354,7 @@ RelGarbage()
 #endif
 }
 
-CollectGarbage()
+void CollectGarbage()
 /* The garbage collection driver */
 {
     int i;

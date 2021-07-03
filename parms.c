@@ -17,6 +17,7 @@
 #include "pl.h"
 
 /* Declaration and properties of work areas */
+/* Объявление и свойства рабочих областей */
 
 #define AtomSize	(128*K)
 #define AuxSize		(8*K)
@@ -56,7 +57,8 @@ int Switches = 6;
 #define STARTUPFILE "STARTUP"
 #endif
 
-char StandardStartup[] = STARTUPFILE;
+//char StandardStartup[] = STARTUPFILE;
+char StandardStartup[] = "pstartup1.5";
 
 char *
 UserStartup()

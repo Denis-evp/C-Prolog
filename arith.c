@@ -26,22 +26,42 @@
 #define SOMETIMES	1
 #define	ALWAYS		2
 
+#ifdef __STDC__
+#define	__P(p)	p
+#else
+#define	__P(p)	()
+#endif
+
 double
 ffail()
 {
     ArithError("internal error - undefined operator");
 }
 
-extern	double	sin(), asin(), exp(), sqrt();
-extern	double	cos(), acos(), log(), floor();
-extern	double	tan(), atan(), log10();
+static
+NotInt();
+
+static
+NotOp(FUNCTOR *fn);
+
+extern	double	sin __P((double));
+extern	double	asin __P((double));
+extern	double	exp __P((double));
+extern	double	sqrt __P((double));
+extern	double	cos __P((double));
+extern	double	acos __P((double));
+extern	double	log __P((double));
+extern	double	floor __P((double));
+extern	double	tan __P((double));
+extern	double	atan __P((double));
+extern	double	log10 __P((double));
 
 extern int brklev;
 
 static double (*UFloat[])() = {
     ffail,
     ffail,
-    ffail,
+	ffail,
     ffail,
     exp,
     log,
@@ -60,46 +80,48 @@ static double (*UFloat[])() = {
 static char floatable[] = {	/* code arity function */
     NEVER,			/*    0     - UNUSABLE */
     NEVER,			/*    1     1       ID */
-    SOMETIMES,			/*    2     1        - */
-    NEVER,			/*    3     1        \ */
-    ALWAYS,			/*    4     1      exp */
-    ALWAYS,			/*    5     1      log */
-    ALWAYS,			/*    6     1    log10 */
-    ALWAYS,			/*    7     1     sqrt */
-    ALWAYS,			/*    8     1      sin */
-    ALWAYS,			/*    9     1      cos */
-    ALWAYS,			/*   10     1      tan */
-    ALWAYS,			/*   11     1     asin */
-    ALWAYS,			/*   12     1     acos */
-    ALWAYS,			/*   13     1     atan */
-    SOMETIMES,			/*   14     1    floor */
-    SOMETIMES,			/*   15     1    SPARE */
-    ALWAYS,			/*   16     - UNUSABLE */
-    SOMETIMES,			/*    1     2        + */
-    SOMETIMES,			/*    2     2        - */
-    SOMETIMES,			/*    3     2        * */
-    ALWAYS,			/*    4     2        / */
-    NEVER,			/*    5     2      mod */
-    NEVER,			/*    6     2       /\ */
-    NEVER,			/*    7     2       \/ */
-    NEVER,			/*    8     2       << */
-    NEVER,			/*    9     2       >> */
-    NEVER,			/*   10     2       // */
-    ALWAYS,			/*   11     2        ^ */
-    NEVER,			/*   12     2    SPARE */
-    NEVER,			/*   13     2    SPARE */
-    NEVER,			/*   14     2    SPARE */
-    NEVER			/*   15     2    SPARE */
+	SOMETIMES,		/*    2     1        - */
+	NEVER,			/*    3     1        \ */
+	ALWAYS,			/*    4     1      exp */
+	ALWAYS,			/*    5     1      log */
+	ALWAYS,			/*    6     1    log10 */
+	ALWAYS,			/*    7     1     sqrt */
+	ALWAYS,			/*    8     1      sin */
+	ALWAYS,			/*    9     1      cos */
+	ALWAYS,			/*   10     1      tan */
+	ALWAYS,			/*   11     1     asin */
+	ALWAYS,			/*   12     1     acos */
+	ALWAYS,			/*   13     1     atan */
+	SOMETIMES,		/*   14     1    floor */
+	SOMETIMES,		/*   15     1    SPARE */
+	ALWAYS,			/*   16     - UNUSABLE */
+	SOMETIMES,		/*    1     2        + */
+	SOMETIMES,		/*    2     2        - */
+	SOMETIMES,		/*    3     2        * */
+	ALWAYS,			/*    4     2        / */
+	NEVER,			/*    5     2      mod */
+	NEVER,			/*    6     2       /\ */
+	NEVER,			/*    7     2       \/ */
+	NEVER,			/*    8     2       << */
+	NEVER,			/*    9     2       >> */
+	NEVER,			/*   10     2       // */
+	ALWAYS,			/*   11     2        ^ */
+	NEVER,			/*   12     2    SPARE */
+	NEVER,			/*   13     2    SPARE */
+	NEVER,			/*   14     2    SPARE */
+	NEVER			/*   15     2    SPARE */
 };
 
 
 typedef struct {
-    char Float;
-    union {
+	char Float;
+	union {
 	int asInt;
 	double asFloat;
-    } val;
+	} val;
 } Value;
+
+static int ForceInt(register Value *v);
 
 #define AsInt	val.asInt
 #define AsFloat	val.asFloat
@@ -116,121 +138,121 @@ PTR t, g;
    g is the associated global frame (if t is a skel)
 */
 {
-    int b, n, i, typ, fl; PTR f1, f2, arg1, arg2; Value v1, v2;
-    FUNCTOR *fn;
-    
-    if (IsRef(t) && Undef(*t))		/* undefined cell */
+	int b, n, i, typ, fl; PTR f1, f2, arg1, arg2; Value v1, v2;
+	FUNCTOR *fn;
+
+	if (IsRef(t) && Undef(*t))		/* undefined cell */
 	NotNumber();
-    if (IsPrim(t)) {			/* primitive type */
+	if (IsPrim(t)) {			/* primitive type */
 	if (IsInt(t)) {			/* integer */
-	    v1.Float = FALSE;
-	    v1.AsInt = XtrInt(t);
-	    return v1;
+		v1.Float = FALSE;
+		v1.AsInt = XtrInt(t);
+		return v1;
 	}
 	if (IsFloat(t)) {		/* float */
-	    v1.Float = TRUE;
-	    v1.AsFloat = XtrFloat(t);
-	    return v1;
+		v1.Float = TRUE;
+		v1.AsFloat = XtrFloat(t);
+		return v1;
 	}
 	NotNumber();			/* non-number */
-    }
+	}
 					/* atom or skel */
 					/* grab expression info field */
-    fn = FunctorP(SkelP(t)->Fn);
-    b = (fn->flgsoffe)&0x1f;
-    if (!b) NotOp(fn);
-    if (IsAtomic(t)) {			/* atom */
+	fn = FunctorP(SkelP(t)->Fn);
+	b = (fn->flgsoffe)&0x1f;
+	if (!b) NotOp(fn);
+	if (IsAtomic(t)) {			/* atom */
 	switch (b) {
-	    case TIME:
+		case TIME:
 		v1.Float = TRUE;
 		v1.AsFloat = CPUTime();
 		return v1;
-	    case HEAP:
+		case HEAP:
 		v1.Float = FALSE;
 		v1.AsInt = HeapUsed();
 		return v1;
-	    case BREAKLEV:
+		case BREAKLEV:
 		v1.Float = FALSE;
 		v1.AsInt = brklev;
 		return v1;
-	    default:
+		default:
 		NotOp(fn);
 	}
-    }
+	}
 					/* skel   (first check for [_]) */
-    if (fn == FunctorP(listfunc)) {
+	if (fn == FunctorP(listfunc)) {
 	if (argv(Addr(SkelP(t)->Arg2),g,&f1) != atomnil)
-	    ArithError("not a string");
+		ArithError("not a string");
 	arg1 = argv(Addr(SkelP(t)->Arg1),g,&f1);
 	return eval(arg1,f1);
-    }
+	}
 					/* skel   (general case) */
-    n = fn->arityoffe;	/* grab arity */
-    if (n > 2) NotOp(fn);
-    switch (n) {
+	n = fn->arityoffe;	/* grab arity */
+	if (n > 2) NotOp(fn);
+	switch (n) {
 	case 1:				/* unary */
-	    arg1 = argv(++t,g,&f1);
-	    return unary(b,arg1,f1);
+		arg1 = argv(++t,g,&f1);
+		return unary(b,arg1,f1);
 	case 2:				/* binary */
-	    arg1 = argv(++t,g,&f1);
-	    arg2 = argv(++t,g,&f2);
-	    return binary(b, arg1, arg2, f1, f2);
+		arg1 = argv(++t,g,&f1);
+		arg2 = argv(++t,g,&f2);
+		return binary(b, arg1, arg2, f1, f2);
 	default:
 	ffail();
-    }
+	}
 }
 
 static Value
 unary(op,arg,env)
 int op; PTR arg, env;
 {
-    int fl = floatable[op], typ;
-    Value v;
+	int fl = floatable[op], typ;
+	Value v;
 
-    typ = fl-(1-AllFloat) > 0;
-    errno = 0;				/* no errors */
-    v = eval(arg,env);
-    if (fl == NEVER) {
+	typ = fl-(1-AllFloat) > 0;
+	errno = 0;				/* no errors */
+	v = eval(arg,env);
+	if (fl == NEVER) {
 	if (!ForceInt(&v)) NotInt();
-    } else
-    if (v.Float)
-    	typ = TRUE;
-    else if (typ) {
+	} else
+	if (v.Float)
+		typ = TRUE;
+	else if (typ) {
 	v.AsFloat = (double)(v.AsInt);
 	v.Float = TRUE;
-    }
-    switch (op) {
+	}
+	switch (op) {
 	case ID:
-	    break;
+		break;
 	case UMINUS:
-	    if (typ) v.AsFloat = -v.AsFloat;
-	    else v.AsInt = -v.AsInt;
-	    break;
+		if (typ) v.AsFloat = -v.AsFloat;
+		else v.AsInt = -v.AsInt;
+		break;
 	case NOT:
-	    v.AsInt = ~v.AsInt;
-	    break;
+		v.AsInt = ~v.AsInt;
+		break;
 	default:		/* ALWAYS functions */
-	    v.AsFloat = (*UFloat[op])(v.AsFloat);
-    }
-    if (errno != 0) ArithError(SysError());
-    return v;
+		v.AsFloat = (*UFloat[op])(v.AsFloat);
+	}
+	if (errno != 0) ArithError(SysError());
+	return v;
 }
 
 static Value
 binary(op,arg1,arg2,env1, env2)
 int op; PTR arg1, arg2, env1, env2;
-{ 
-    Value v1, v2;
-    int fl = floatable[op+16], typ;
+{
+	Value v1, v2;
+	int fl = floatable[op+16], typ;
 
-    v1 = eval(arg1,env1);
-    v2 = eval(arg2,env2);
-    typ = fl-(1-AllFloat) > 0;
-    errno = 0;				/* no errors */
-    if (fl == NEVER) {
+	v1 = eval(arg1,env1);
+	v2 = eval(arg2,env2);
+	typ = fl-(1-AllFloat) > 0;
+	errno = 0;				/* no errors */
+	if (fl == NEVER) {
 	if (!ForceInt(&v1)) NotInt();
 	if (!ForceInt(&v2)) NotInt();
-    } else {
+	} else {
 	typ |= v1.Float | v2.Float;
 	if (typ) {		/* coerce both args. to float */
 	    if (!v1.Float) v1.AsFloat = (double)(v1.AsInt);
@@ -492,8 +514,8 @@ Narrow(f,i)
 
 static int
 ForceInt(v)
-    register Value *v;
-    {
+	register Value *v;
+	{
 	if (v->Float) v->Float = !Narrow(v->AsFloat, &(v->AsInt));
 	return !v->Float;
     }
@@ -518,9 +540,9 @@ NotInt()
 
 static
 NotOp(fn)
-    FUNCTOR *fn;
+	FUNCTOR *fn;
     {
-    sprintf(OutBuf,
+	sprintf(OutBuf,
 		  fn->arityoffe
 		? "%s is not an arithmetic operator"
 		: "%s is not a number",

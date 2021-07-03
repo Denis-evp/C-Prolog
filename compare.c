@@ -21,7 +21,9 @@
 
 	variable: -2, primitive: -1, atom: 0, skeleton: its arity
 */
-#define code(t) (IsRef(t) ? -2 : (IsPrim(t) ? -1 : SkelP(t)->Fn->arityoffe))
+#define code(t) (IsRef(t) ? -2 : (IsPrim(t) ? -1 : FunctorP(SkelP(t)->Fn)->arityoffe))
+
+static comp(PTR T1, PTR E1, PTR T2, PTR E2);
 	    
 compare(T1,T2)
 PTR T1, T2;
@@ -41,9 +43,9 @@ PTR T1, E1, T2, E2;
     PTR t1, e1, t2, e2; int d1, d;
 
     if (T1 == T2 && E1 == E2) return 0;
-    d1 = code(T1);
+	d1 = code(T1);
     d = d1 - code(T2);
-    if (d) return d;		/* If codes different return difference */
+	if (d) return d;		/* If codes different return difference */
     if (d1 < 0) {		/* Both vars. or primitives */
 	if (IsNumber(T1))	/* Both numbers */
 	    return intsign(T1,T2);
@@ -62,7 +64,7 @@ PTR T1, E1, T2, E2;
 	return d;
     }
 				/* compare names */
-    return strcmp(SkelP(T1)->Fn->atoffe->stofae,
-		  SkelP(T2)->Fn->atoffe->stofae);
+	return strcmp(AtomP(FunctorP(SkelP(T1)->Fn)->atoffe)->stofae,
+		  AtomP(FunctorP(SkelP(T2)->Fn)->atoffe)->stofae);
 }
 

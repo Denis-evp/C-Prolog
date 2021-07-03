@@ -27,6 +27,8 @@ static PTR vid[MAX_VAR+2], vn[MAX_VAR+2];
 static int nvars, lev, nt, nl, ng, toomany, refsflg, onhead;
 static PTR i, f, g, k, r, head, body, argx;
 
+void freeterm(PTR c);
+
 static int
 LookVar(vi)
 PTR vi;
@@ -50,7 +52,7 @@ PTR t, g;
 {
     int n; PTR p1, p3, f; unsigned p2;
     if (IsPrim(t) && IsDBRef(t)) /* if database reference */
-	XtrDBRef(t)->refcofcl++; /* increment ref count of refed term */
+	ClauseP(XtrDBRef(t))->refcofcl++; /* increment ref count of refed term */
     if (IsAtomic(t))
 	return t;		/* nothing to store for atomic terms */
     if (Undef(*t)) {		/* if variable */
@@ -64,7 +66,7 @@ PTR t, g;
 	    p2 |= OnBody;	/* else mark as body variable */
 	if (lev > 1)		/* if not at outer level */
 	    p2 |= Global;	/* mark as global */
-	    vn[n] = p2;		/* store updated properties */
+		vn[n] = p2;		/* store updated properties */
 	    p2 = SkelGlobal(n);	/* make variable prototype (global n) */
 	    if ((!lev) && !onhead) { /* handle variable goal */
 		p1 = getsp(SkelSz(1)); /* by converting into call(X) */
@@ -107,6 +109,7 @@ PTR t, g;
 }
 
 static
+void
 scan(c)
 PTR c;
 {
@@ -156,7 +159,7 @@ PTR t, rk; int key, aorz;
 	goto errorexit;
     }
     r = SkelP(head)->Fn;
-    if ((FunctorP(r)->flgsoffe)&RESERVED) {
+	if ((FunctorP(r)->flgsoffe)&RESERVED) {
 	ErrorMess = "! Attempt to redefine a system predicate";
 	goto errorexit;
     }
@@ -212,7 +215,7 @@ PTR t, rk; int key, aorz;
 	    if (Unsigned(vn[j]) < 1024)
 		vn[j] = Unsigned(k)+Unsigned(vn[j]);
     }
-    ClauseP(r)->altofcl = ClauseP(r)->prevofcl = NULL;
+	ClauseP(r)->altofcl = ClauseP(r)->prevofcl = NULL;
     ClauseP(r)->infofcl = 0;
     ClauseP(r)->ltofcl = nl+nt;
     ClauseP(r)->lvofcl = nl;
@@ -225,27 +228,27 @@ PTR t, rk; int key, aorz;
                        : &(FunctorP(rk)->FRecords);
 
     if (aorz) {			/* store at the beginning */
-	r->prevofcl = NULL;
-	r->altofcl = rk->First;
-	if (rk->First)
-	    rk->First->prevofcl = r;
-	rk->First = r;
-	if (!(rk->Last))
-	    rk->Last = r;
+	ClauseP(r)->prevofcl = NULL;
+	ClauseP(r)->altofcl = ((Header*)(rk))->First;
+	if (((Header*)(rk))->First)
+		ClauseP(((Header*)(rk))->First)->prevofcl = r;
+	((Header*)(rk))->First = r;
+	if (!(((Header*)(rk))->Last))
+		((Header*)(rk))->Last = r;
     } else {			/* store at the end */
-	r->prevofcl = rk->Last;
-	r->altofcl = NULL;
-	if (rk->Last)
-	    rk->Last->altofcl = r;
-	rk->Last = r;
-	if (!(rk->First))
-	    rk->First = r;
+	ClauseP(r)->prevofcl = ((Header*)(rk))->Last;
+	ClauseP(r)->altofcl = NULL;
+	if (((Header*)(rk))->Last)
+		ClauseP(((Header*)(rk))->Last)->altofcl = r;
+	((Header*)(rk))->Last = r;
+	if (!(((Header*)(rk))->First))
+		((Header*)(rk))->First = r;
     }
     Safe();
     return ConsDBRef(r,key);
-    errorexit:
+	errorexit:
     Safe();
-    freeterm(head);
+	freeterm(head);
     freeterm(body);
     return NULL;
 }
@@ -298,7 +301,7 @@ PTR r;
 
 /* release space occupied by source term c */
 
-freeterm(c)
+void freeterm(c)
 PTR c;
 {
     int n, k; PTR p;
@@ -343,14 +346,14 @@ PTR p;
     r = key == CLAUSE ? Addr(FunctorP(r)->FClauses)
                       : Addr(FunctorP(r)->FRecords);
     Unsafe();
-    if (c->prevofcl)
-	c->prevofcl->altofcl = c->altofcl;
+	if (ClauseP(c)->prevofcl)
+	ClauseP(ClauseP(c)->prevofcl)->altofcl = ClauseP(c)->altofcl;
     else 			/* first in chain */
-	r->First = c->altofcl;
-    if (c->altofcl)		/* not last in chain */
-	c->altofcl->prevofcl = c->prevofcl;
+	((Header*)(r))->First = ClauseP(c)->altofcl;
+	if (ClauseP(c)->altofcl)		/* not last in chain */
+	ClauseP(ClauseP(c)->altofcl)->prevofcl = ClauseP(c)->prevofcl;
     else			/* last in chain */
-	r->Last = c->prevofcl;
+	((Header*)(r))->Last = ClauseP(c)->prevofcl;
     Safe();
 }
 
@@ -466,7 +469,7 @@ PTR t; int bodyflg;
     }
     n = FunctorP(*t)->arityoffe;
     MolP(v1)->Sk = Addr(FunctorP(*t)->gtoffe);
-    MolP(v1)->Env = v1+2;
+	MolP(v1)->Env = v1+2;
     a = v1; b = v1+2; GrowGlobal(n+2);
     while (n-- > 0) {
 	k = *++t;
@@ -497,13 +500,13 @@ PTR r, argp;
     g = ClauseP(p)->gvofcl; l = ClauseP(p)->ltofcl;
     InitGlobal(g+l,tf);
     rl = g-szofcf;
-    if (DBType(r) == RECORD) h = p->bdyofcl;
+	if (DBType(r) == RECORD) h = ClauseP(p)->bdyofcl;
     else {
 	h = ClauseP(p)->hdofcl; b = ClauseP(p)->bdyofcl;
 	if (Undef(b)) b = atomtrue;
 	if (l>0 ) {
 	    h = globalize(h,FALSE);
-	    b = globalize(b,TRUE);
+		b = globalize(b,TRUE);
 	} else {
 	    if (IsComp(h))
 		ConsMol(h,tf,h);

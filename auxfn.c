@@ -16,6 +16,9 @@
 
 #include "pl.h"
 
+static int used(int a);
+static int tide(int a);
+
 PTR
 fentry(atom,arity)
 PTR atom; int arity;
@@ -159,12 +162,12 @@ static PTR
 string_to_atom(name,app)
 char *name; PTR **app;
 {
-    register unsigned int h; register ATOM **ap; register char *s = name;
+    register unsigned int h; register PrATOM **ap; register char *s = name;
 
     h = strlen(s);
     while (*s) h += *s++;
-    for (ap = (ATOM **)(hasha+h%HASHSIZE); *ap; 
-				ap = (ATOM **)Addr((*ap)->nxtofae))
+    for (ap = (PrATOM **)(hasha+h%HASHSIZE); *ap; 
+				ap = (PrATOM **)Addr((*ap)->nxtofae))
 	if (strcmp((*ap)->stofae,name) == 0) break;
     *app = (PTR*)ap;
     return *ap;
@@ -178,7 +181,11 @@ char *id;
 {
     PTR old, ptr, new;
 
-    if (old = string_to_atom(id,&ptr)) return old;
+    if (old = string_to_atom(id,&ptr)) {
+		//fprintf(stderr,"TERM:is old atom:%s\n",id);
+		return old;
+	}
+	//fprintf(stderr,"TERM:is new atom:%s\n",id);
     new = atomfp;
     GrowAtom(Words(szofae+strlen(id)));
     Unsafe();
@@ -198,7 +205,7 @@ char *id;
 
 int
 hide_atom(a)
-ATOM *a;
+PrATOM *a;
 {
     PTR *aa; PTR *lostatoms = CellP(hasha+HASHSIZE);
 

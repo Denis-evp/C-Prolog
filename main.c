@@ -30,36 +30,44 @@ extern PTR HeapTop();
 #define FlOffset	(Addr(ClauseP(0)->altofcl)-(PTR)0)
 
 /* initial atoms */
+/* предопределённые атомы */
 
 PTR BasicAtom[BATOMS];
 
 /* initial functors */
+/* предопределённые функторы */
 
 PTR BasicFunctor[BFUNCS];
 
 /* initial terms */
+/* начальные опеределения */
 
 PTR BasicTerm[BTERMS];
 
 /* Variables for comunication with read, write and symbol table */
+/* переменные для связи при помощи чтения, записи и таблицей символов */
 
 PTR hasha, lsp, atomfp, varfp, atprompt;
-int lc, quoteia, nvars, fileerrors, reading, InBoot;
+int lc, quoteia, fileerrors, reading, InBoot;
 VarP varchain;
 
 /* start-up flag */
+/* "Стартовый флаг" */
 
 int running = FALSE;
 
 /* variables for communication with dbase */
+/* переменные для связи с базой данных (dbase) */
 
 PTR vra, vrz;
 
 /*  general error message passing string */
+/* строка передачи сообщения общей ошибки */
 
 char *ErrorMess;
 
 /* emergency exit */
+/* екстренный выход */
 
 typedef struct {
     jmp_buf buf;
@@ -68,11 +76,13 @@ typedef struct {
 extern  JumpBuf ZeroState;
 
 /*  Heap management block */
+/* Блок управления "кучей" */
 
 extern char Heap[];
 extern int  HeapHeader;
 
 /* Names of work areas */
+/* Названия рабочих областей */
 
 char   *AreaName[] = {
     "atom space", "aux. stack", "trail", "heap",
@@ -80,10 +90,12 @@ char   *AreaName[] = {
 };
 
 /* Prolog machine registers */
+/* Регистры Prolog машины */
 
 PTR x, x1, v, v1, vv, vv1, v1f, tr, tr0;
 
 /*  main loop variables */
+/*  Переменные основного цикла */
 
 static int info;
 PTR pg, c, bg;
@@ -92,6 +104,7 @@ static PTR g, fl;
 #define FL	ClauseP(fl)	/* failure label */
 
 /*  miscellaneous */
+/* прочее */
 
 int brklev;
 
@@ -147,7 +160,7 @@ static VarP vchain;
 static PTR pvrz, *savead;
 PTR brkp;
 
-/*  variables to be saved on a break */
+/*  Переменные сохраняемые при прерывании */
 
 static  PTR * BreakVars[] = {
     &breakret, &brkp, &vchain, &recons, &pvrz,
@@ -198,7 +211,7 @@ PTR *p; int n;
 static
 rstrv(p,n)
 PTR *p; int n;
-/*  restores n vars starting with v */
+/*  restores n vars starting with p */
 {
     while (n-- > 0)
 	*p++ = *savead++;
@@ -248,13 +261,13 @@ save()
     int oldin, oldout;
 
     /* open file */
-    if (!(fa = fopen(AtomToFile(ARG1),"w"))) return FALSE;
+    if (!(fa = fopen(AtomToFile(ARG1),"wb"))) return FALSE;
     errno = 0;		/* no errors right now */
     /*  save state */
     oldin = Input; oldout = Output;
     Input = STDIN; Output = STDOUT;
     savevars();		/* create a break environ */
-    savepS = savead-lcl0;
+	savepS = savead-((PTR*)lcl0);
     savev(BasicAtom,BATOMS);
     savev(BasicFunctor,BFUNCS);
     savev(BasicTerm,BTERMS);
@@ -267,7 +280,7 @@ save()
     ltrS = tr-trbase;
     lskelS = HeapTop()-skel0;
     lglbS = v1-glb0;
-    llclS = savead-lcl0+2;
+	llclS = savead-((PTR*)lcl0)+2;
     fwrite(SaveMagic,1,4,fa);	/* mark with tag and version no. */
     fwrite(&saveversion,sizeof saveversion,1,fa);
     fwrite(LSave,sizeof LSave,1,fa);
@@ -310,7 +323,7 @@ static unsigned LArea[NAreas];
 #define rglb	RArea[GlobalId]
 #define rlcl	RArea[LocalId]
 
-static
+static void
 remap(tp)
 PTR tp;
 /*  remap source term pointed to by tp */
@@ -340,7 +353,7 @@ char *sfile;
     char magic[5];
 
     /*  open file */
-    if (!(fa = fopen(sfile,"r"))) {
+    if (!(fa = fopen(sfile,"rb"))) {
 	ErrorMess = SysError();
 	return FALSE;
     }
@@ -434,11 +447,11 @@ char *sfile;
 	are distinguished by having either NULL or an aux. stack pointer in
 	their first word (NextVar); they are variable length,
 	with the length in VarLen. */
-	if (k->NextVar == NULL ||
-	    (SC(k->NextVar,>=,pauxstk) && SC(k->NextVar,<,ptr))) {
-	    k->VarValue += rglb;
-	    if (k->NextVar) k->NextVar += rauxstk;
-	    k += k->VarLen;
+	if (((VarP)k)->NextVar == NULL ||
+	    (SC(((VarP)k)->NextVar,>=,pauxstk) && SC(((VarP)k)->NextVar,<,ptr))) {
+		((VarP)k)->VarValue += rglb;
+		if (((VarP)k)->NextVar) ((VarP)k)->NextVar += rauxstk;
+		k += ((VarP)k)->VarLen;
 	}
 	else {
 	    if (SC(*k,>=,pskel)) *k += rskel;
@@ -527,6 +540,7 @@ register PTR t;
 static PTR
 bread()
 /*  read initialization terms */
+/*  чтение инициализационных определений */
 {
     PTR r;
 
@@ -535,8 +549,8 @@ bread()
 	SetPlPrompt("    >> ");  PromptIfUser("boot>> ");
 	varfp = vrz; lsp = v;
 	reading = FALSE;
-    } while (!(r = pread()));
-    return r;
+	} while (!(r = pread()));
+	return r;
 }
 
 /*===============================================================
@@ -561,51 +575,57 @@ int ArgC; char *ArgV[];
 	   Unix signals are mapped to Prolog events,
 	   Event(..) can also be used to force
 	   a Prolog event to occur. */
-	case ABORT:  /* abort */
+	case ABORT:	/* abort */
+				/* переывание */
 	    aborting:
 	    fprintf(stderr,"\n\n[ execution aborted ]\n\n");
 	    ResetTrail(trbase); CloseFiles(); InitIO();
 	    goto restart;
 	case IO_ERROR:	/* files error */
+					/* файловая ошибка */
 	    IoFailure:
 	    if (fileerrors) goto efail;
 	    debug = TRUE;
 	    fprintf(stderr,"\n\n%s\n",ErrorMess);
 	    goto aborting;
 	case END_OF_FILE:	/* input ended */
-	    Seen();
+						/* завершение ввода */
+		Seen();
 	    if (reading) {
 		reading = FALSE;
 		goto readend;
 	    }
-	    ErrorMess = "! Input ended";
-	    goto IoFailure;
+		ErrorMess = "! Input ended";
+		goto IoFailure;
 	case ARITH_ERROR:	/* error in arithmetic expression */
+						/* ошибка в арифметическом выражении */
 	    fprintf(stderr,"\n! Error in arithmetic expression: %s\n",
 		ErrorMess);
-	    debug = TRUE; sklev = NEVER_SKIP; goto efail;
+		debug = TRUE; sklev = NEVER_SKIP; goto efail;
 	case GEN_ERROR:	/* general error with message requiring abort */
+					/* общая ошибка с сообщением о необходимости прерывания */
 	    fprintf(stderr,"\n%s",ErrorMess);
 	    goto aborting;
-	case COLD_START:	/* cold start */
+	case COLD_START:	/* cold start */ /* холодный старт */
 	    break;
     }
 
-    printf("%s\n",version);
+	printf("%s\n",version);
 
-    /*  process parameters */
+	/*  process parameters */
+	/*  параметры процесса */
 
     for (i = 0; i < Switches; i++)
 	State[i] = FALSE;
-    plparm = NULL;
-    while (--ArgC > 0)
+	plparm = NULL;
+	while (--ArgC > 0)
 	if (**++ArgV == '-') {
 	    for (i = 0; i < NParms; i++)
 		if (Parameter[i] == (*ArgV)[1]) {
 		    ArgV++; ArgC--;
-		    if (*ArgV) Size[i] = atoi(*ArgV)*K;
+			if (*ArgV) Size[i] = atoi(*ArgV)*K;
 		}
-	    for (i1 = 1; (*ArgV)[i1]; i1++) {
+		for (i1 = 1; (*ArgV)[i1]; i1++) {
 		for (i = 0; i < Switches; i++)
 		    if (Switch[i] == (*ArgV)[i1]) {
 			State[i] = TRUE;
@@ -613,14 +633,14 @@ int ArgC; char *ArgV[];
 		}
 		if (i > Switches)
 		    fprintf(stderr,
-		    "! Unknown switch: %c\n",(*ArgV)[i1]);
+			"! Unknown switch: %c\n",(*ArgV)[i1]);
 	    }
 	} else {
 	    plparm = *ArgV;
 	    break;
 	}
     InBoot = FALSE;
-    if (!State[IN_BOOT]) {
+	if (!State[IN_BOOT]) {
 	if (!plparm) {
 	    plparm = UserStartup();
 	    if (!Exists(plparm)) {
@@ -639,10 +659,11 @@ int ArgC; char *ArgV[];
 	    InitIO();
 	    Vtide = v; V1tide = v1; TRtide = tr; Auxtide = vrz;
 	    running = TRUE;
-            /* the system is now up and running */
+			/* the system is now up and running */
+			/* система включена и работает */
 	    if (brklev > 0) 
 		printf("[ Restarting break (level %d) ]\n",brklev);
-	    TRY(unifyarg(Addr(ARG2),ConsInt(1),0));
+		TRY(unifyarg(Addr(ARG2),ConsInt(1),0));
 	}
 	fprintf(stderr,"%s\n",ErrorMess);
 	exit(BAD_EXIT);
@@ -655,19 +676,22 @@ int ArgC; char *ArgV[];
     printf("[ Bootstrapping session. Initializing from file %s ]\n",
            plparm);
 
-    /* create stacks */
+	/* create stacks */
+	/* создание стеков */
 
-    CreateStacks();
+	CreateStacks();
 
-    /* initialize atom area */
+	/* initialize atom area */
+    /* инициализация пространства атомов */
 
     hasha = atom0; atomfp = atom0;
     for (i = 0; i <= HASHSIZE; i++) *atomfp++ = NULL;
    /* hasha+HASHSIZE points to atoms that have been hidden by $hide_atom */
 
     /*  initialize read/print vars */
-
-    lc = TRUE; quoteia = FALSE; 
+	// lc -- предположительно - считать первую большую букву - маленькой
+	//  при токенизации
+	lc = TRUE; quoteia = FALSE;
 
     /*  initialize heap */
 
@@ -687,19 +711,22 @@ int ArgC; char *ArgV[];
 
     CSee(plparm);
 
-    /*  read required atoms */
+	/*  read required atoms */
+	/*  чтение необходимых атомов */
 
     for (i = 0; i < BATOMS; i++)
 	BasicAtom[i] = bread();
 
-    /*  read required functors */
+	/*  read required functors */
+	/*  чтение необходимых функторов */
 
     for (i = 0; i <BFUNCS; i++)
 	BasicFunctor[i] = SkelP(MolP(bread())->Sk)->Fn;
 
-    /* read required terms */
+	/* read required terms */
+    /* чтение необходимых определений */
 
-    pg = getsp(27); k = pg;
+	pg = getsp(27); k = pg;
     for (i = 9; i > 0; i--) {
 	SkelP(k)->Fn = listfunc;
 	SkelP(k)->Arg1 = SkelGlobal(i);
@@ -720,7 +747,7 @@ int ArgC; char *ArgV[];
 	if (!(g = record(CLAUSE,pg,0,0))) { /* assert encapsulated term */
 	    fprintf(stderr,"Cannot create basic term: ");
 	    Output = STDERR;
-	    pwrite(pg,0,1200);
+		pwrite(pg,0,1200);
 	    Put('\n');
 	    exit(BAD_EXIT);
 	}
@@ -772,8 +799,8 @@ int ArgC; char *ArgV[];
     /* main loop during bootstrap session */
 
     mainloop:
-    pg = bread();
-    if (IsRef(pg) && *pg) g = *pg; else g = pg;
+	pg = bread();
+	if (IsRef(pg) && *pg) g = *pg; else g = pg;
     if (g == EndOfFile) {
 	Seen();
 	State[IN_BOOT] = FALSE;
@@ -783,7 +810,6 @@ int ArgC; char *ArgV[];
     if (IsAtomic(g) || SkelP(g)->Fn != provefunc) { 
 	if (!record(CLAUSE,pg,0,0)) {
 	    int telling;
-
 	    fprintf(stderr,"%s\n",ErrorMess);
 	    telling = Output;
 	    Output = STDERR;
@@ -792,10 +818,10 @@ int ArgC; char *ArgV[];
 	    Output = telling;
 	}
 	goto mainloop;
-    }
+	}
 
-    SetPlPrompt("| ");
-    pg = arg(Addr(SkelP(g)->Arg1),pg->Env);
+	SetPlPrompt("| ");
+	pg = arg(Addr(SkelP(g)->Arg1),MolP(pg)->Env);
 
     /* go - run the goal pg */
 
@@ -803,7 +829,7 @@ int ArgC; char *ArgV[];
     brkp = 0;	/* no break points so far */
     tr = trbase; vv = x = lcl0; vv1 = x1 = glb0; c = Yes;
     VV->gofcf = No;
-    VV->altofcf = Addr(FunctorP(No)->defsoffe->altofcl);
+	VV->altofcf = Addr(ClauseP(FunctorP(No)->defsoffe)->altofcl);
     VV->gfofcf = VV->lcpofcf = vv;
     VV->gsofcf = vv1;
     VV->trofcf = tr0 = tr;
@@ -816,47 +842,47 @@ int ArgC; char *ArgV[];
 
 /********************************************************************
 
-          interpreter main loop
+		  interpreter main loop
 
 ********************************************************************/
 
-    icall:
-    if (IsInp(pg)) g = pg;
-    else { 
+	icall:
+	if (IsInp(pg)) g = pg;
+	else {
 	x1 = MolP(pg)->Env;
 	g = MolP(pg)->Sk;
-    }
-    f = SkelP(g)->Fn;
-    d = FunctorP(f)->defsoffe;
-    if (execsys)
+	}
+	f = SkelP(g)->Fn;
+	d = FunctorP(f)->defsoffe;
+	if (execsys)
 	info = PRIM_TAG|HIDDEN_FRAME;
-    else {
+	else {
 	bb = FunctorP(f)->flgsoffe;
 	if (!(bb&INVISIBLE)) invokno++;
 	info = FrameInfo(invokno,lev);
-    brokencall:
+	brokencall:
 	Trace((debug && !(bb&(INVISIBLE|UNTRACEABLE))),
-	      v,pg,x,info,CALL_PORT);
-    }
-    if (Signed(d) > 0 && Signed(d) < 255) {
+		  v,pg,x,info,CALL_PORT);
+	}
+	if (Signed(d) > 0 && Signed(d) < 255) {
 	i = Signed(d);
 	goto EvalPred;
-    }
-    while (d && Erased(d)) d = ClauseP(d)->altofcl;
-    if (!d) goto efail;
+	}
+	while (d && Erased(d)) d = ClauseP(d)->altofcl;
+	if (!d) goto efail;
 
-    V->lcpofcf = vv;
-    V->gofcf = pg;
-    V->gfofcf = x;
-    V->gsofcf = v1;
-    V->trofcf = tr0 = tr;
-    V->infofcf = info;
-    V->cofcf = c;
-    vv = v; vv1 = v1;
+	V->lcpofcf = vv;
+	V->gofcf = pg;
+	V->gfofcf = x;
+	V->gsofcf = v1;
+	V->trofcf = tr0 = tr;
+	V->infofcf = info;
+	V->cofcf = c;
+	vv = v; vv1 = v1;
 
-    /* try one clause */
-    alt:
-    n = SkelP(g)->Fn->arityoffe;
+	/* try one clause */
+	alt:
+	n = FunctorP(SkelP(g)->Fn)->arityoffe;
     fl = Addr(ClauseP(d)->altofcl);
     v1f=v1;
     if ((!debug) && !*fl) {
@@ -865,158 +891,191 @@ int ArgC; char *ArgV[];
     }
     InitGlobal(ClauseP(d)->gvofcl,k);
     k = Addr(V->v1ofcf);
-    i = ClauseP(d)->ltofcl;
+	i = ClauseP(d)->ltofcl;
     while (i-- > 0) *k++ = 0;
     V->altofcf = fl;
-    if (IsComp(g)) {
+	if (IsComp(g)) {
 	register PTR ta, tb, a, b, pa, pb; int arity;
 
 	/* in-line top level for unification */
 
 	ta = ClauseP(d)->hdofcl;
 	tb = g;
-	arity = SkelP(ta)->Fn->arityoffe;
+	arity = FunctorP(SkelP(ta)->Fn)->arityoffe;
 
 	/* main loop  */
+	/* Основной цикл */
 
-	while (arity-- > 0) {
-	    a = *++ta;
-	    if (IsVar (a)) {
-		pa = FrameVar (IsLocalVar (a) ? v : v1f, VarNo (a));
-		a = *pa;
-		while (IsRef (a)) {
-		    pa = a;
-		    a = *a;
-		}
-		b = *++tb;
-		if (IsVar (b)) {
-		    pb = FrameVar (IsLocalVar (b) ? x : x1, VarNo (b));
-		    b = *pb;
-		    while (IsRef (b)) {
-			pb = b;
-			b = *b;
-		    }
-		    if (pa == pb)
-			continue;
-		    if (Undef (b)) {
+
+		//IfOutput(modeflag,pwrite(g,x1,1200));
+		//printf("\n");
+
+		while (arity-- > 0) {
+		//printf("=================\n");
+		a = *++ta;
+		//printf("testpoint_L1_1\n");
+		if (IsVar (a)) {
+			pa = FrameVar (IsLocalVar (a) ? v : v1f, VarNo (a));
+			a = *pa;
+			//printf("A:%dx\n",a);
+			while (IsRef (a)) {
+				pa = a;
+				a = *a;
+			}
+			//printf("A:%dx\n",a);
+			b = *++tb;
+			//printf("testpoint_L2_1\n");
+			if (IsVar (b)) {
+				pb = FrameVar (IsLocalVar (b) ? x : x1, VarNo (b));
+				b = *pb;
+				while (IsRef (b)) {
+					pb = b;
+					b = *b;
+				}
+				//printf("B:%dx\n",b);
+				//printf("testpoint_L3_1\n");
+				if (pa == pb)
+				continue;
+				//printf("testpoint_L3_2\n");
+				if (Undef (b)) {
+					if (Undef (a)) {
+						if (pa > pb) {
+							*pa = pb;
+							TrailVar (pa);
+							continue;
+						}
+					*pb = pa;
+					TrailVar (pb);
+					continue;
+					}
+					if (IsComp (a))
+						*pb = pa;
+					else
+						*pb = a;
+					TrailVar (pb);
+					continue;
+				}
+				//printf("testpoint_L3_3\n");
+				if (Undef (a)) {
+					if (IsComp (b))
+						*pa = pb;
+					else
+						*pa = b;
+					TrailVar (pa);
+					continue;
+				}
+				//printf("testpoint_L3_4\n");
+				if (IsAtomic (a)) {
+					if (a == b)
+					continue;
+				else
+					goto fail;
+				}
+				//printf("Unify\n");
+				if (IsAtomic (b) ||
+					!gunify (a, MolP (pa) -> Env, b, MolP (pb) -> Env))
+						goto fail;
+				continue;
+			}
+			//printf("testpoint_L2_2\n");
+			if (IsAtomic (b)) {
+			//printf("B:ATOMIC\n");
+				if (Undef (a)) {
+					*pa = b;
+					TrailVar (pa);
+					continue;
+				}
+				if (a == b)
+					continue;
+				goto fail;
+			}
+			//printf("testpoint_L2_3\n");
 			if (Undef (a)) {
-			    if (pa > pb) {
-				*pa = pb;
+				ConsMol (b, x1, *pa);
 				TrailVar (pa);
 				continue;
-			    }
-			    *pb = pa;
-			    TrailVar (pb);
-			    continue;
 			}
-			if (IsComp (a))
-			    *pb = pa;
+			//printf("testpoint_L2_4\n");
+			if (IsAtomic (a) ||
+				!gunify (a, MolP (pa) -> Env, b, x1))
+				goto fail;
+			continue;
+		}
+		//printf("testpoint_L1_2\n");
+			//printf("A:0x%08x\n",a);
+		b = *++tb;
+			//printf("B:0x%08x\n",b);
+		if (IsInp (b)) {
+			//printf("B is Inp\n");
+			if (IsComp (a)) {
+				//printf("A is Comp\n");
+				if (IsAtomic (b) || !gunify (a, v1f, b, x1))
+					goto fail;
+				continue;
+			}
+
+			if (b != a)
+				goto fail;
+			continue;
+		}
+		//printf("testpoint_L1_3\n");
+		pb = FrameVar (IsLocalVar (b) ? x : x1, VarNo (b));
+		b = *pb;
+		while (IsRef (b)) {
+			pb = b;
+			b = *b;
+		}
+		//if (IsVar (b)) printf("B IsVar\n");
+		//if (Undef (b)) printf("B Undef\n");
+		//if (IsComp (b)) printf("B IsComp\n");
+		//if (IsAtomic (b)) printf("B IsAtomic\n");
+		//printf("B:%dx\n",XtrInt(b));
+		//printf("testpoint_L1_4\n");
+		if (Undef (b)) {
+			if (IsAtomic (a))
+				*pb = a;
 			else
-			    *pb = a;
+				ConsMol (a, v1f, *pb);
 			TrailVar (pb);
 			continue;
-		    }
-    
-		    if (Undef (a)) {
-			if (IsComp (b))
-			    *pa = pb;
-			else
-			    *pa = b;
-			TrailVar (pa);
+		}
+		//printf("testpoint_L1_5\n");
+		if (IsComp (b)) {
+			if (IsAtomic (a) ||
+				!gunify (a, v1f, b, MolP (pb) -> Env))
+				goto fail;
 			continue;
-		    }
-    
-		    if (IsAtomic (a)) {
-			if (a == b)
-			    continue;
-			else
-			    goto fail;
-		    }
-		    if (IsAtomic (b) ||
-			!gunify (a, MolP (pa) -> Env, b, MolP (pb) -> Env))
-			goto fail;
-		    continue;
 		}
-		if (IsAtomic (b)) {
-		    if (Undef (a)) {
-			*pa = b;
-			TrailVar (pa);
-			continue;
-		    }
-		    if (a == b)
-			continue;
-		    goto fail;
-		}
-		if (Undef (a)) {
-		    ConsMol (b, x1, *pa);
-		    TrailVar (pa);
-		    continue;
-		}
-		if (IsAtomic (a) ||
-		    !gunify (a, MolP (pa) -> Env, b, x1))
-		    goto fail;
-		continue;
-	    }
-	    b = *++tb;
-	    if (IsInp (b)) {
-		if (IsComp (a)) {
-		    if (IsAtomic (b) || !gunify (a, v1f, b, x1))
-			goto fail;
-		    continue;
-		}
+		//printf("testpoint_L1_6\n");
 		if (b != a)
-		    goto fail;
+			goto fail;
 		continue;
-	    }
-	    pb = FrameVar (IsLocalVar (b) ? x : x1, VarNo (b));
-	    b = *pb;
-	    while (IsRef (b)) {
-		pb = b;
-		b = *b;
-	    }
-	    if (Undef (b)) {
-		if (IsAtomic (a))
-		    *pb = a;
-		else
-		    ConsMol (a, v1f, *pb);
-		TrailVar (pb);
-		continue;
-	    }
-	    if (IsComp (b)) {
-		if (IsAtomic (a) ||
-		    !gunify (a, v1f, b, MolP (pb) -> Env))
-		    goto fail;
-		continue;
-	    }
-	    if (b != a)
-		goto fail;
-	    continue;
 	}
-    }
+	}
 
-    if (v > vmax) NoSpace(LocalId);
-    if (v1 > v1max) NoSpace(GlobalId);
-    bn = &(ClauseP(d)->infofcl);
-    if (!((*bn)&IN_USE)) {
+	if (v > vmax) NoSpace(LocalId);
+	if (v1 > v1max) NoSpace(GlobalId);
+	bn = &(ClauseP(d)->infofcl);
+	if (!((*bn)&IN_USE)) {
 	*bn |= IN_USE;
 	TrailPtr(ConsDBRef(d,CLAUSE));
-    }
-    x = v; x1 = v1f;
-    GrowLocal(szofcf+ClauseP(d)->lvofcl);
-    if (c = ClauseP(d)->bdyofcl) {
+	}
+	x = v; x1 = v1f;
+	GrowLocal(szofcf+ClauseP(d)->lvofcl);
+	if (c = ClauseP(d)->bdyofcl) {
 	if (!execsys && !(bb&INVISIBLE)) {
-	    if (bb&PROTECTED) execsys = HIDDEN_FRAME;
+		if (bb&PROTECTED) execsys = HIDDEN_FRAME;
 	    else lev++;
 	}
 	if (IsInt(c)) {
 	    i = XtrInt(c)&255;
 	    modeflag = XtrInt(c)>>8;
-	    c = NULL;
+		c = NULL;
 	    goto EvalPred;
 	}
     }
 continuation:
-    while (!c) {
+	while (!c) {
 	HighTide(v,Vtide);
 	if (x > vv) v = x;
     fromcut:
@@ -1025,7 +1084,7 @@ continuation:
 	info = X->infofcf;
 	execsys = SysFrame(info);
 	if (!execsys) lev = Level(info);
-    brokenexit:
+	brokenexit:
 	Trace((debug && (!execsys)),x,pg,X->gfofcf,info,EXIT_PORT);
 	x = X->gfofcf;
 	x1 = X->gsofcf;
@@ -1035,8 +1094,8 @@ continuation:
 
     notfoot:
     x1 = X->gsofcf;
-    if (IsPrim(c)) goto efail;
-    if (SkelP(c)->Fn != commatag) {
+	if (IsPrim(c)) goto efail;
+	if (SkelP(c)->Fn != commatag) {
 	pg = c; c = NULL;
 	goto icall; 
     }
@@ -1048,7 +1107,7 @@ continuation:
     
     /*  shallow backtracking */
 
-    fail:
+	fail:
     d = *fl;
     while (tr != tr0) **--tr = NULL;
     while (d && Erased(d)) d = ClauseP(d)->altofcl;
@@ -1112,12 +1171,14 @@ continuation:
 
 /****************************************************************
 *                                                               *
-*		evaluable predicates				*
+*		evaluable predicates									*
+*                                                               *
+*		Известные предикаты										*
 *                                                               *
 ****************************************************************/
-
-    EvalPred:
-    switch (i) {
+	EvalPred:
+    //fprintf(stderr,"i=%i",i);
+	switch (i) {
 
 /*   control predicates */
 
@@ -1149,10 +1210,10 @@ continuation:
 	cut:
 	    if (x > vv) goto continuation;
 	    HighTide(v,Vtide);
-	    v = x+szofcf+((X->altofcf)-FlOffset)->ltofcl;
+		v = x+szofcf+ClauseP((X->altofcf)-FlOffset)->ltofcl;
 	    vv = X->lcpofcf;
 	    vv1 = VV->gsofcf;
-	    HighTide(tr,TRtide);
+		HighTide(tr,TRtide);
 	    if (X->trofcf != tr) {
 	        register PTR kept, old, entry ; PTR globound, locbound;
 
@@ -1180,7 +1241,7 @@ continuation:
 	    repeat:
 	    vv = x;
 	    vv1 = x1;
-	    *fl = d;
+		*fl = d;
 	    goto continuation;
 	case _abort:			/* abort             a4 */
 	    goto aborting;
@@ -1242,8 +1303,8 @@ continuation:
 	    goto readunify;
 	case _write:		/* write(x)        b18 */
 	    quoteia = FALSE;
-	    IfOutput(modeflag,pwrite(ARG1,x1,1200));
-	    goto continuation;
+		IfOutput(modeflag,pwrite(ARG1,x1,1200));
+		goto continuation;
 	case _writeq:		/* writeq(x)        b28 */
 	    quoteia = TRUE;
 	    IfOutput(modeflag,pwrite(ARG1,x1,1200));
@@ -1271,7 +1332,7 @@ continuation:
 	    goto continuation;
 	case _tab:		/* tab(n)          b24 */
 	    i = intval(&(ARG1));
-	    IfOutput(modeflag,while (i-- > 0) Put(' '));
+		IfOutput(modeflag,while (i-- > 0) Put(' '));
 	    goto continuation;
 	case _fileerrors:		/* fileerrors      b25 */
 	    fileerrors = FALSE;
@@ -1364,8 +1425,8 @@ continuation:
 /*--------------------------------------------------------------*/
 
 	case _var:		/* var(x)   b50 */
-	    k = ARG1;
-	    TRY(IsRef(k) && Undef(*k));
+		k = ARG1;
+		TRY(IsRef(k) && Undef(*k));
 	case _nonvar:/* nonvar(x)   b51 */
 	    k = ARG1;
 	    TRY(!IsRef(k) || !Undef(*k));
@@ -1378,7 +1439,7 @@ continuation:
 	case _db_reference:	/* db_reference(x) */
 	    TRY(IsDBRef(ARG1));
 	case _atomic:		/* atomic(x)   b53 */
-	    TRY(IsAtomic(ARG1));
+		TRY(IsAtomic(ARG1));
 	case _atom:		/* atom(x) b59 */
 	    k = ARG1;
 	    TRY(!IsPrim(k) && IsAtomic(k));
@@ -1416,9 +1477,9 @@ continuation:
 	    i1 = intval(&(ARG1));
 	    k1 = ARG2;
 	    if (IsInp(k1) || Undef(*k1)) goto efail;
-	    y = MolP(k1)->Env; k1 = MolP(k1)->Fn;
+		y = MolP(k1)->Env; k1 = SkelP(MolP(k1)->Sk)->Fn;
 	    if ( i1 <= 0 ||
-                     i1 > FunctorP(SkelP(k1)->Fn)->arityoffe)
+					 i1 > FunctorP(SkelP(k1)->Fn)->arityoffe)
 		 goto efail;
 	    k = argv(k1+i1,y,&y);
 	    TRY(unifyarg(Addr(ARG3),k,y));
@@ -1472,22 +1533,26 @@ continuation:
 	    v1 -= 2;
 	    TRY(unifyarg(Addr(ARG1),MolP(k)->Sk,MolP(k)->Env));
 	case _asst1:		/* assert(c) */
-	    TEST(record(CLAUSE,ARG1,0,FALSE),continuation,dbfail);
+		//printf("_asst1\n");
+		TEST(record(CLAUSE,ARG1,0,FALSE),continuation,dbfail);
 	case _assta1:		/* asserta(c) */
-	    TEST(record(CLAUSE,ARG1,0,TRUE),continuation,dbfail);
+		//printf("_assta1\n");
+		TEST(record(CLAUSE,ARG1,0,TRUE),continuation,dbfail);
 	case _asst2:		/* assert(c,r) */
-	    i1 = FALSE;
-	    assertr:
-	    k = record(CLAUSE,ARG1,0,i1);
-	    y = &(ARG2);
-	    unfref:
-	    if (!k) goto dbfail;
-	    k1 = XtrDBRef(k);
-	    ClauseP(k1)->infofcl |= IN_USE;
-	    TrailPtr(k);
-	    TRY(unifyarg(y,k,0));
+		//printf("_asst2\n");
+		i1 = FALSE;
+		assertr:
+		k = record(CLAUSE,ARG1,0,i1);
+		y = &(ARG2);
+		unfref:
+		if (!k) goto dbfail;
+		k1 = XtrDBRef(k);
+		ClauseP(k1)->infofcl |= IN_USE;
+		TrailPtr(k);
+		TRY(unifyarg(y,k,0));
 	case _assta2:		/* asserta(c,r) */
-	    i1 = TRUE;
+		//printf("_assta2\n");
+		i1 = TRUE;
 	    goto assertr;
 	case _rcrda:		/* recorda(k,t,r) */
 	    i1 = TRUE; goto recordr;
@@ -1614,7 +1679,7 @@ continuation:
 	case _cfunctor:		/*  $current_functor(a,n,key,mask)
 				    mode_(+,?,+,+) */
 	    ARG5 = ARG1;
-	    fl = *fl; FL->altofcl = fl;
+		fl = *fl; FL->altofcl = fl;
 	case _cfunctor+1:
 	    GrowLocal(5);
 	    k1 = ARG5;
@@ -1624,7 +1689,7 @@ continuation:
 	    i = XtrInt(ARG3)&255;
 	    if ((XtrInt(ARG4)&(FunctorP(k)->flgsoffe)) != i)
 		goto nextfunc; 
-	    if ((XtrInt(ARG3)&256) && !FunctorP(k)->defsoffe)
+		if ((XtrInt(ARG3)&256) && !FunctorP(k)->defsoffe)
 		goto nextfunc;
 	    if (!unifyarg(Addr(ARG2),
                           ConsInt(FunctorP(k)->arityoffe),0))
@@ -1632,7 +1697,7 @@ continuation:
 	    ARG5 = k1;
 	    goto continuation;
 	case _flags:		/*  $flags(p,old,new) */
-	    bn = &(SkelP(FunctorP(MolP(ARG1)->Sk)->Fn)->flgsoffe);
+	    bn = &(FunctorP(SkelP(MolP(ARG1)->Sk)->Fn)->flgsoffe);
 	    if (!unifyarg(Addr(ARG2),ConsInt(*bn),0)) goto efail;
 	    *bn = (char)intval(&(ARG3));
 	    goto continuation;
@@ -1683,7 +1748,7 @@ continuation:
 	case _brk:		/* $break(g) a102 */
 	    bg = arg(g+1,x1);
 	    if (IsPrim(bg) || Undef(*bg)) goto efail;
-	    if (IsComp(bg) && IsInp(bg)) ConsMol(bg,x1,bg);
+		if (IsComp(bg) && IsInp(bg)) ConsMol(bg,x1,bg);
 	    breakret = CONT;
 	enterbreak:
 	    InStat = SaveStream(Input);
@@ -1708,8 +1773,9 @@ continuation:
 	    PromptIfUser(AtomP(ARG1)->stofae);
 	    goto continuation;
 	case _user_exec:		/* $user_exec(_) b105 */
-	    c = ARG1;
-	    if (IsPrim(c) || Undef(*c)) goto efail;
+		c = ARG1;
+		IfOutput(modeflag,pwrite(ARG1,x1,1200));
+		if (IsPrim(c) || Undef(*c)) goto efail;
 	    GrowLocal(1); lev = 1; invokno = 0;
 	    if (debug) {
 		spy = TRUE;
@@ -1734,10 +1800,10 @@ continuation:
 		telling = Output;
 		Output = STDOUT;
 		for (var = vchain; var; var = var->NextVar) {
-		    Put('\n');
-		    PutString(var->VarName); PutString(" = ");
-		    k = vvalue(var->VarValue,&k1);
-		    pwrite(k,k1,1200);
+			Put('\n');
+			PutString(var->VarName); PutString(" = ");
+			k = vvalue(var->VarValue,&k1);
+			pwrite(k,k1,1200);
 		}
 		PutString(" ");
 		Output = telling;
@@ -1754,7 +1820,8 @@ continuation:
 	    printf("[ End break (level %d) ]\n",brklev--);
 	    goto continuation;
 	case _asstr:		/* $assertr(_) b112 */
-	    k = record(CLAUSE,ARG1,recons,FALSE);
+		//printf("_asstr\n");
+		k = record(CLAUSE,ARG1,recons,FALSE);
 	    if (k) goto continuation;
 	    fprintf(stderr,"\n%s\n",ErrorMess);
 	    goto efail;
@@ -1767,7 +1834,7 @@ continuation:
 		unifyarg(Addr(ARG5),ConsInt(i2),NULL)));
 	case _RIP:		/* $rest_in_peace  a113 */
 	    CloseFiles();
-	    printf("\n[ Prolog execution halted ]\n");
+		printf("\n[ Prolog execution halted ]\n");
 	    exit(GOOD_EXIT);
 	case _xrepeat:           /* b115  $repeat */
 	    goto repeat;
